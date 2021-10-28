@@ -59,7 +59,7 @@ echo "Initializing done"
 
 if [[ ${IMMEDIATE_FIRST_BACKUP} == "yes" ]]; then
     echo "Running first backup..."
-    barman backup --wait all
+    barman cron && barman backup --wait all
     echo "...done"
 fi
 
