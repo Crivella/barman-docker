@@ -17,6 +17,7 @@ RUN apt-get update \
 #   libpq-dev: Needed to build/run psycopg2
 #   libpython-dev: For building psycopg2
 #   openssh-client: Needed to rsync basebackups from the database servers
+#   openssh-server: Needed for ssh/rsync WAL archiving
 #   python: Needed to run barman
 #   rsync: Needed to rsync basebackups from the database servers
 #   gettext-base: envsubst
@@ -29,6 +30,7 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 		libpq-dev \
 		libpython3-dev \
 		openssh-client \
+		openssh-server \
 		postgresql-client-9.5 \
 		postgresql-client-9.6 \
 		postgresql-client-10 \
@@ -42,11 +44,11 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 	&& rm -rf /var/lib/apt/lists/* \
 	&& rm -f /etc/crontab /etc/cron.*/* \
 	&& sed -i 's/\(.*pam_loginuid.so\)/#\1/' /etc/pam.d/cron \
-    && mkdir -p /etc/barman/barman.d
+    && mkdir -p /etc/barman.d
 
 # Set up some defaults for file/directory locations used in entrypoint.sh.
 ENV \
-	BARMAN_VERSION=2.10 \
+	BARMAN_VERSION=2.15 \
 	BARMAN_CRON_SRC=/private/cron.d \
 	BARMAN_DATA_DIR=/var/lib/barman \
 	BARMAN_LOG_DIR=/var/log/barman \
@@ -55,37 +57,41 @@ ENV \
     BARMAN_CRON_SCHEDULE="* * * * *" \
     BARMAN_BACKUP_SCHEDULE="0 4 * * *" \
     BARMAN_LOG_LEVEL=INFO \
-    DB_HOST=pg \
-    DB_PORT=5432 \
-    DB_SUPERUSER=postgres \
-    DB_SUPERUSER_PASSWORD=postgres \
-    DB_SUPERUSER_DATABASE=postgres \
-    DB_REPLICATION_USER=standby \
-    DB_REPLICATION_PASSWORD=standby \
-    DB_SLOT_NAME=barman \
-    DB_BACKUP_METHOD=postgres \
-    BARMAN_EXPORTER_SCHEDULE="*/5 * * * *" \
-    BARMAN_EXPORTER_LISTEN_ADDRESS="0.0.0.0" \
-    BARMAN_EXPORTER_LISTEN_PORT=9780 \
-    BARMAN_EXPORTER_CACHE_TIME=3600
+    BARMAN_BACKUP_OPTIONS="concurrent_backup" \
+    BARMAN_RETENTION_POLICY="RECOVERY WINDOW of 3 MONTHS" \
+    IMMEDIATE_FIRST_BACKUP="no"
+    # BARMAN_RECOVERY_OPTIONS = "" \
+    # DB_HOST=pg \
+    # DB_PORT=5432 \
+    # DB_SUPERUSER=postgres \
+    # DB_SUPERUSER_PASSWORD=postgres \
+    # DB_SUPERUSER_DATABASE=postgres \
+    # DB_REPLICATION_USER=standby \
+    # DB_REPLICATION_PASSWORD=standby \
+    # DB_SLOT_NAME=barman \
+    # DB_BACKUP_METHOD=postgres
+    # BARMAN_EXPORTER_SCHEDULE="*/5 * * * *" \
+    # BARMAN_EXPORTER_LISTEN_ADDRESS="0.0.0.0" \
+    # BARMAN_EXPORTER_LISTEN_PORT=9780 \
+    # BARMAN_EXPORTER_CACHE_TIME=3600
 VOLUME ${BARMAN_DATA_DIR}
 
 COPY install_barman.sh /tmp/
 RUN /tmp/install_barman.sh && rm /tmp/install_barman.sh
 COPY barman.conf.template /etc/barman.conf.template
-COPY pg.conf.template /etc/barman/barman.d/pg.conf.template
+# COPY pg.conf.template /etc/barman.d/pg.conf.template
 COPY wal_archiver.py /usr/local/lib/python3.7/dist-packages/barman/wal_archiver.py
 
 # Install barman exporter
-RUN pip install barman-exporter && mkdir /node_exporter
-VOLUME /node_exporter
+# RUN pip install barman-exporter && mkdir /node_exporter
+# VOLUME /node_exporter
 
-ENV TINI_VERSION v0.18.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini.asc /tini.asc
-RUN gpg --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
- && gpg --verify /tini.asc \
- && chmod +x /tini
+# ENV TINI_VERSION v0.18.0
+# ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+# ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini.asc /tini.asc
+# RUN gpg --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
+#  && gpg --verify /tini.asc \
+#  && chmod +x /tini
 
 CMD ["cron", "-L", "4",  "-f"]
 COPY entrypoint.sh /
@@ -95,4 +101,4 @@ WORKDIR ${BARMAN_DATA_DIR}
 # the CMD which, by default, starts cron.  The 'barman -q cron' job will get
 # pg_receivexlog running.  Cron may also have jobs installed to run
 # 'barman backup' periodically.
-ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
