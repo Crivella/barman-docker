@@ -54,7 +54,7 @@ ENV \
 	BARMAN_DATA_DIR=/barman_data \
 	BARMAN_LOG_DIR=/var/log/barman \
     BARMAN_CRON_SCHEDULE="* * * * *" \
-    BARMAN_BACKUP_SCHEDULE="0 4 * * *" \
+    BARMAN_BACKUP_SCHEDULE="0 0 1 * *" \
     BARMAN_LOG_LEVEL=INFO \
     BARMAN_BACKUP_OPTIONS="concurrent_backup" \
     BARMAN_RETENTION_POLICY="RECOVERY WINDOW of 3 MONTHS" \
