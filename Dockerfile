@@ -36,6 +36,8 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 		postgresql-client-10 \
 		postgresql-client-11 \
 		postgresql-client-12 \
+		postgresql-client-13 \
+		postgresql-client-14 \
 		python3 \
         python3-distutils \
 		rsync \
@@ -82,6 +84,7 @@ VOLUME ${BARMAN_HOME_DIR}
 VOLUME ${BARMAN_DATA_DIR}
 VOLUME /etc/barman.d
 
+EXPOSE 22/tcp
 EXPOSE 9780/tcp
 EXPOSE 9781/tcp
 
