@@ -24,7 +24,7 @@ SERVERS=`barman list-servers --minimal | tr -s '\n' ' '`
 echo "Servers found: ${SERVERS}"
 echo "Generating cron schedules"
 echo "${BARMAN_CRON_SCHEDULE} barman /bin/bash -c 'for H in $SERVERS; do /usr/local/bin/barman receive-wal --create-slot \${H}; done'; /usr/local/bin/barman cron" > /etc/cron.d/barman
-echo "${BARMAN_BACKUP_SCHEDULE} barman /usr/local/bin/barman cron && /usr/local/bin/barman backup all" >> /etc/cron.d/barman
+echo "${BARMAN_BACKUP_SCHEDULE} barman ${BARMAN_BACKUP_SCHEDULE_EXTRA} /usr/local/bin/barman cron && /usr/local/bin/barman backup all" >> /etc/cron.d/barman
 
 # cat /etc/barman.d/pg.conf.template | envsubst > /etc/barman.d/${DB_HOST}.conf
 # if [[ "${BARMAN_RECOVERY_OPTIONS}" != "" ]]; then
@@ -77,7 +77,6 @@ if [[ ${IMMEDIATE_FIRST_BACKUP} == "yes" ]]; then
         fi
     done
 fi
-
 
 echo "Starting cron service..."
 cron -L 4
