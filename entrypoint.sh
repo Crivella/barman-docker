@@ -63,7 +63,11 @@ exec /usr/local/bin/barman-exporter -l ${BARMAN_EXPORTER_LISTEN_ADDRESS}:${BARMA
 echo "Started Barman exporter on ${BARMAN_EXPORTER_LISTEN_ADDRESS}:${BARMAN_EXPORTER_LISTEN_PORT}"
 
 # run prometheus-node-exporter for use with the barman grafana dashboard
-prometheus-node-exporter --web.listen-address="${NODE_EXPORTER_LISTEN_ADDRESS}:${NODE_EXPORTER_LISTEN_PORT}" 2>/dev/null &
+/node-exporter/node-exporter \
+    --web.listen-address="${NODE_EXPORTER_LISTEN_ADDRESS}:${NODE_EXPORTER_LISTEN_PORT}" \
+    --collector.disable-defaults \
+    --collector.filesystem \
+    2>/dev/null &
 echo "Started prometheus-node-exporter on ${NODE_EXPORTER_LISTEN_ADDRESS}:${NODE_EXPORTER_LISTEN_PORT}"
 
 echo "Initializing done"

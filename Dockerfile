@@ -31,6 +31,7 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 		libpython3-dev \
 		openssh-client \
 		openssh-server \
+		postgresql-client-9.4 \
 		postgresql-client-9.5 \
 		postgresql-client-9.6 \
 		postgresql-client-10 \
@@ -43,7 +44,6 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 		rsync \
 		gettext-base \
 		procps \
-		prometheus-node-exporter \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& rm -f /etc/crontab /etc/cron.*/* \
 	&& sed -i 's/\(.*pam_loginuid.so\)/#\1/' /etc/pam.d/cron \
@@ -53,10 +53,14 @@ RUN bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main
 ENV \
 	BARMAN_VERSION=2.15 \
 	BARMAN_HOME_DIR=/var/lib/barman \
+	NODE_EXPORTER_VERSION="1.3.1" \
+	NODE_EXPORTER_ARCH="linux-amd64"
 
 
 COPY install_barman.sh /tmp/
 RUN /tmp/install_barman.sh && rm /tmp/install_barman.sh
+COPY install_node_exporter.sh /tmp/
+RUN /tmp/install_node_exporter.sh && rm /tmp/install_node_exporter.sh
 COPY barman.conf.template /etc/barman.conf.template
 # COPY pg.conf.template /etc/barman.d/pg.conf.template
 # COPY wal_archiver.py /usr/local/lib/python3.7/dist-packages/barman/wal_archiver.py
@@ -67,11 +71,11 @@ ENV \
 	BARMAN_DATA_DIR=/barman_data \
 	BARMAN_LOG_DIR=/var/log/barman \
 	BARMAN_CRON_SCHEDULE="* * * * *" \
-	BARMAN_BACKUP_SCHEDULE="0 0 * * 0" \
+	BARMAN_BACKUP_SCHEDULE="0 0 * * 6" \
 	BARMAN_BACKUP_SCHEDULE_EXTRA="[ $(date +\%d) -le 07 ] &&" \
 	BARMAN_LOG_LEVEL=INFO \
 	BARMAN_BACKUP_OPTIONS="concurrent_backup" \
-	BARMAN_RETENTION_POLICY="RECOVERY WINDOW of 3 MONTHS" \
+	BARMAN_RETENTION_POLICY="RECOVERY WINDOW of 2 MONTHS" \
 	IMMEDIATE_FIRST_BACKUP="yes" \
 	BARMAN_EXPORTER_LISTEN_ADDRESS="0.0.0.0" \
 	BARMAN_EXPORTER_LISTEN_PORT=9780 \
