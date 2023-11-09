@@ -1,84 +1,58 @@
-# docker-barman
+# barman-docker
 
-This repo contains files used to build a [docker](https://www.docker.com) image
-for running [BaRMan](https://github.com/2ndquadrant-it/barman), the "Backup and
-Recovery Manager for PostgreSQL."
+This container deploys [BaRMan](https://github.com/EnterpriseDB/barman), the "Backup and Recovery Manager for PostgreSQL.", together with [node exporter](https://github.com/prometheus/node_exporter) and [barman exporter](https://github.com/marcinhlybin/prometheus-barman-exporter) to export [prometheus](https://prometheus.io/) metrics.
 
-It is easily used in conjunction with the `tbeadle/postgres:<version>-barman`
-images at https://hub.docker.com/r/tbeadle/postgres/.
+## Typical use-case
 
-## Getting the image
+Deploy a barman server to backup multiple projects using separate [PostgreSQL](https://www.postgresql.org/) databases.
 
-`docker-compose pull`
+### Installation
 
-## Building the image
+docker pull crivella1/docker-sh-exporter
 
-If you would like to build the image yourself, simply run:
+### Build
 
-`docker-compose build`
+    docker build -t crivella1/docker-sh-exporter 
 
-## Running the image
+### Run
 
-Running the image can be as simple as
+    docker run --name sh-exporter -v HOST_MONITOR_DIR:MONITOR_DIR -v HOST_SCRIPT_DIR:/scripts -c HOST_COLLECT_DIR:COLLECT_DIR -p XXXXX:9781  -h docker-sh-exporter -t crivella1/docker-sh-exporter
 
-`docker-compose up`
+## Container ports
 
-but you will likely want to create your own `docker-compose.yml` file to define
-volumes that will be mounted for persistent data.  See the ***Environment
-variables*** section below.
-
-The barman program is run inside the container as the `barman` user.  If you
-enter a shell in the container and want to run barman commands, make sure to run
-them as the `barman` user using `gosu barman <barman command>`.  For example:
-
-```
-gosu barman barman check all
-gosu barman barman backup all
-```
-
-## Examples of usage
-
-See the examples/ directory for examples of how to use this image.
-
- * ***streaming***: The remote database server streams its WAL logs to barman.
-   This reduces the "Recovery Point Objective (RPO)" to nearly 0.  RPO is the
-   "maximum amount of data you can afford to lose."<sup>[1](#barman_docs)</sup>
-   This example also sets up  a weekly cron job to take incremental base backups
-   using rsync.  This helps reduce the time that would be required to play back
-   the WAL files in a disaster recovery situation.
-
-Currently only streaming of WAL logs is supported.  Using postgres's
-`archive_command` functionality is not supported at this time.
-
-## Environment variables
-
-The following environment variables may be set when starting the container:
-
-| Name                               | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----                               | -----------                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| BARMAN_CRON_SRC                    | This directory holds files that will be copied in to `/etc/cron.d/` and have the correct permissions set so that they will be run via cron.  This can be used as a place to put cron jobs for performing regular basebackups.  Defaults to `/private/cron.d`.
-| BARMAN_LOG_DIR                     | The location where log files can be stored.  For example, a cron job can be set up to take regular full backups and that can send its logs here.  Defaults to `/var/log/barman`.                                                                                                                                                                                                                                                                                                                                                                        |
-| BARMAN_SSH_KEY_DIR                 | This directory in the container (most likely mounted as a volume) should contain SSH private key files that are used when connecting via SSH to the database servers that you're backing up.  This happens if the `backup_method` defined in the barman config for the server is set to `rsync`.  The `ssh_command` for that server should include `-i /home/barman/.ssh/<private_key_filename>`.  Note that the keys are copied from this directory to /home/barman/.ssh/ to ensure ownership/permissions are properly set.  Defaults to /private/ssh. |
-| BARMAN_PGPASSFILE                  | The path to a file in the container that is a [pgpass](https://www.postgresql.org/docs/9.6/static/libpq-pgpass.html) file containing the passwords for the users used when connecting to the database servers.  The users are defined by the `conninfo` and `streaming_conninfo` configuration variables for the servers.  This file is copied to `/home/barman/.pgpass` when the container is started.  Defaults to `/private/pgpass`.                                                                                                                 |
-| BARMAN_CRON_SCHEDULE               | `* * * * *`, barman cron running scheduel
-| BARMAN_BACKUP_SCHEDULE             | `0 4 * * *`, barman backup running schedule
-| BARMAN_LOG_LEVEL                   | `INFO`, barman log level
-| DB_HOST                            | `pg`, postgres host name
-| DB_PORT                            | `5432`, postgres port
-| DB_SUPERUSER                       | `postgres`, superuser username
-| DB_SUPERUSER_PASSWORD              | `postgres`, superuser password
-| DB_SUPERUSER_DATABASE              | `postgres`, superuser database
-| DB_REPLICATION_USER                | `standby`, replication username
-| DB_REPLICATION_PASSWORD            | `standby`, replication user password
-| DB_SLOT_NAME                       | `barman`, postgres replication slot name for barman
-| DB_BACKUP_METHOD                   | `postgres`, barman backup method, see barman backup
+| Container Port | Usage |
+| --- | --- |
+| 22 | Port used for SSH into the container. Needed if for recovering WAL files when restoring a backup (the target machine will copy the WAL files back via SSH)  |
+| 9780 | Port used by `barman_exporter` to export the metrics |
+| 9781 | Port used by `node_exporter` to export the metrics |
 
 ## Volumes
 
-| Path                     | Description                                                                      |
-|--------------------------|----------------------------------------------------------------------------------|
-| /home/barman/.ssh/id_rsa | The private ssh key that barman will use to connect to remote host when recovery |
+| Path | Description |
+| --- | --- |
+| `/var/lib/barman` | Holds the HOME of the barman user and can be used to mount the `.pg_pass` and `.ssh` into the container |
+| `/barman_data` | Holds the generated backups. Can be used to store the backups on an bind-mounted volume |
+| `/etc/barman.d` | Hold's the configuration files for the backup-targets. Can be ued to mount and manage the target from an external directory |
 
-## Footnotes:
+## Variables
 
-<a name='barman_docs'><sup>1</sup></a>: [Barman Documentation](http://docs.pgbarman.org/release/2.1/)
+| Variable | Values | Usage |
+| --- | --- | --- |
+| `BARMAN_VERSION` | `2.15` | The version of barman that will be installed and used |
+| `BARMAN_HOME_DIR` | `/var/lib/barman` | The home directory of the barman user. Used for the `.pg_pass` and `.ssh/*` files |
+| `BARMAN_DATA_DIR` | `/barman_data` | Directory where barman will store the backup files |
+| `BARMAN_LOG_DIR` | `/var/log/barman` | Directory where barman saves the generated logs |
+| `BARMAN_CRON_SCHEDULE` | `* * * * *` | Schedule with which the `barman cron`  ([see docs](https://docs.pgbarman.org/release/3.9.0/#general-commands))command will be run |
+| `BARMAN_BACKUP_SCHEDULE` | `"0 0 * * 6"` | Schedule with which barman will run a full backup |
+| `BARMAN_BACKUP_SCHEDULE_EXTRA` | `[ $(date +\%d) -le 07 ] &&` | This parameter is passed before the barman backup command in the CRON schedule. It can be used for more advanced configuration, eg. the default value will make it soo backups are ran only the first week of the month (in combination with the weekly schedule in `BARMAN_BACKUP_SCHEDULE`) |
+| `BARMAN_LOG_LEVEL` | `INFO` | The log level for barman |
+| `BARMAN_BACKUP_OPTIONS` | `concurrent_backup` | The backup option passed to barman in the config file ([see documentation](https://docs.pgbarman.org/release/3.9.0/#backup-features)). |
+| `BARMAN_RETENTION_POLICY` | `RECOVERY WINDOW of 2 MONTHS` | The retention policy for the backups |
+| `IMMEDIATE_FIRST_BACKUP` | `yes[no]` | Whether barman will run a first full backup if one does not exists already (for every target server) |
+| `BARMAN_EXPORTER_LISTEN_ADDRESS` | `0.0.0.0` | The address from which barman_exporter will listen to GET requests (0.0.0.0 == ALL) |
+| `BARMAN_EXPORTER_LISTEN_PORT` | `9780` | The port from which barman_exporter will listen to GET requests |
+| `BARMAN_EXPORTER_CACHE_TIME` | `120` | The time in seconds barman_exporter will cache information before querying barman again |
+| `NODE_EXPORTER_VERSION` | `1.3.1` | The version of node_exporter that will be installed the first time the container is launched (Must be a number [github release version number](https://github.com/prometheus/node_exporter/releases)) |
+| `NODE_EXPORTER_ARCH` | `linux-amd64` | The system architecture (decides which arch version of node_exporter is installed) |
+| `NODE_EXPORTER_LISTEN_ADDRESS` | `0.0.0.0` | The address from which node_exporter will listen to GET requests (0.0.0.0 == ALL) |
+| `NODE_EXPORTER_LISTEN_PORT` | `9781` | The port from which node_exporter will listen to GET requests |
